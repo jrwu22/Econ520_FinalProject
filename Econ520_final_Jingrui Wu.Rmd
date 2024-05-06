@@ -1,0 +1,197 @@
+---
+title: "Final project"
+author: "Jingrui Wu"
+date: "2024-05-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(scales)
+
+```
+
+```{r}
+data <- read.csv("/Users/wujingrui/Desktop/Econ520_final_project/salaries.csv")
+print(head(data))
+```
+```{r}
+# Count the occurrences of each experience level and calculate their percentage
+experience_summary <- data %>%
+  count(experience_level) %>%
+  mutate(percentage = n / sum(n) * 100)
+
+relevant_experience <- experience_summary %>%
+  filter(experience_level %in% c("EN", "MI", "SE", "EX"))
+
+print(relevant_experience)
+
+```
+```{r}
+# Group by experience level and calculate the desired statistics
+experience_salary_stats <- data %>%
+  group_by(experience_level) %>%
+  summarize(
+    average_salary_usd = mean(salary_in_usd, na.rm = TRUE),
+    std_dev_salary_usd = sd(salary_in_usd, na.rm = TRUE),
+    median_salary_usd = median(salary_in_usd, na.rm = TRUE)
+  ) %>%
+  filter(experience_level %in% c("EN", "MI", "SE", "EX"))
+
+print(experience_salary_stats)
+
+```
+```{r}
+# Count the occurrences of each residence group and calculate the percentage
+data <- data %>%
+  mutate(residence_grouped = ifelse(employee_residence == "US", "US", "non-US"))
+
+residence_summary <- data %>%
+  count(residence_grouped) %>%
+  mutate(percentage = n / sum(n) * 100)
+
+print(residence_summary)
+
+```
+```{r}
+# Count occurrences of each remote_ratio value and calculate their percentages
+remote_summary <- data %>%
+  count(remote_ratio) %>%
+  mutate(percentage = n / sum(n) * 100)
+
+print(remote_summary)
+```
+```{r}
+# Count occurrences of each company size and calculate their percentages
+company_size_summary <- data %>%
+  count(company_size) %>%
+  mutate(percentage = n / sum(n) * 100)
+
+# Print the summary table
+print(company_size_summary)
+```
+```{r}
+# Count occurrences of each company location and calculate the percentage
+company_location_summary <- data %>%
+  count(company_location) %>%
+  mutate(percentage = n / sum(n) * 100)
+
+# Print the summary table
+print(company_location_summary)
+```
+
+```{r}
+# Create a bar plot of the average salary by company grouping
+data <- data %>%
+  mutate(company_grouped = ifelse(company_location == "US", "US", "non-US"))
+
+company_avg_salary <- data %>%
+  group_by(company_grouped) %>%
+  summarize(average_salary_usd = mean(salary_in_usd, na.rm = TRUE))
+
+ggplot(company_avg_salary, aes(x = company_grouped, y = average_salary_usd)) +
+  geom_bar(stat = "identity", fill = "dodgerblue") +
+  theme_minimal() +
+  labs(
+    title = "Average Salary by US vs Non-US Company Location",
+    x = "Company Group",
+    y = "Average Salary (USD)"
+  )
+
+```
+```{r}
+# Group by company location and calculate the average salary, top 10 locations by average salary
+company_avg_salary <- data %>%
+  group_by(company_location) %>%
+  summarize(average_salary_usd = mean(salary_in_usd, na.rm = TRUE)) %>%
+  arrange(desc(average_salary_usd)) %>%
+  slice(1:10) 
+
+# Create a bar plot of the top 10 average salaries by company location with better y-axis labels
+ggplot(company_avg_salary, aes(x = reorder(company_location, -average_salary_usd), y = average_salary_usd)) +
+  geom_bar(stat = "identity", fill = "dodgerblue") +
+  theme_minimal() +
+  labs(
+    title = "Top 10 Average Salaries by Company Location",
+    x = "Company Location",
+    y = "Average Salary (USD)"
+  ) +
+  scale_y_continuous(labels = comma) +  # Use the 'comma' format for the y-axis labels
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+
+# Group by company location and calculate the average salary, 10 Lowest Average Salaries by Company Location
+company_avg_salary <- data %>%
+  group_by(company_location) %>%
+  summarize(average_salary_usd = mean(salary_in_usd, na.rm = TRUE)) %>%
+  arrange(average_salary_usd) %>%
+  slice(1:10)  
+
+# Create a bar plot of the 10 lowest average salaries by company location
+ggplot(company_avg_salary, aes(x = reorder(company_location, average_salary_usd), y = average_salary_usd)) +
+  geom_bar(stat = "identity", fill = "dodgerblue") +
+  theme_minimal() +
+  labs(
+    title = "10 Lowest Average Salaries by Company Location",
+    x = "Company Location",
+    y = "Average Salary (USD)"
+  ) +
+  scale_y_continuous(labels = comma) +  # Use the 'comma' format for the y-axis labels
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+```{r}
+#the impact of company size on salary while controlling for experience level
+data$company_size <- as.factor(data$company_size)
+data$experience_level <- as.factor(data$experience_level)
+
+model <- lm(salary_in_usd ~ company_size + experience_level, data = data)
+
+summary(model)
+```
+
+```{r}
+# the impact of US residency on salary while controlling for experience level
+data$experience_level <- as.factor(data$experience_level)
+data$us_residence <- ifelse(data$employee_residence == "US", 1, 0)
+
+model <- lm(salary_in_usd ~ us_residence + experience_level, data = data)
+
+summary(model)
+```
+```{r}
+#the impact of remote ratio on salary while controlling for experience level
+data$experience_level <- as.factor(data$experience_level)
+data$remote_ratio <- as.factor(data$remote_ratio)
+
+model <- lm(salary_in_usd ~ remote_ratio + experience_level, data = data)
+
+summary(model)
+
+```
+
+```{r}
+#a linear regression model with all the specified factors
+data$company_size <- as.factor(data$company_size)
+data$experience_level <- as.factor(data$experience_level)
+data$remote_ratio <- as.factor(data$remote_ratio)
+data$us_residence <- ifelse(data$employee_residence == "US", 1, 0)
+
+model <- lm(salary_in_usd ~ company_size + us_residence + remote_ratio + experience_level, data = data)
+
+summary(model)
+```
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
